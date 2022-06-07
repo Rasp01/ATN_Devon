@@ -64,7 +64,7 @@ def import_gpx(gpx_file):
     return bluebell_walk, coords
 
 
-def get_nearest_nodes(nodes_id, node_coordinates, coords):
+def get_nearest_nodes(nodes_id, node_coordinates, start_point, coord):
     idx = index.Index()
 
     # set the bounds for the index
@@ -73,14 +73,11 @@ def get_nearest_nodes(nodes_id, node_coordinates, coords):
                                     node_coordinates[i][0], node_coordinates[i][1])
         idx.insert(i, (left, bottom, right, top))
 
-    start_point = coords[0]
-    end_point = coords[1]
-
     for i in idx.nearest(start_point, 1):
         first_coordinate = node_coordinates[i]
         # need to add # so that it is identified in with the link
         first_node = ("#" + nodes_id[i])
-    for i in idx.nearest(end_point, 1):
+    for i in idx.nearest(coord, 1):
         last_coordinate = node_coordinates[i]
         # need to add # so that it is identified in with the link
         last_node = ("#" + nodes_id[i])
@@ -88,7 +85,7 @@ def get_nearest_nodes(nodes_id, node_coordinates, coords):
     return first_coordinate, first_node, last_coordinate, last_node
 
 
-def gpx_to_network(first_node, last_node, g, path_network):
+def gpx_to_path(first_node, last_node, g, path_network):
     path = nx.dijkstra_path(g, first_node, last_node, weight='weight')
 
     geom = []
@@ -139,10 +136,14 @@ def main():
     gpx_file = open(os.path.join('Walking routes', 'Bluebell walk.gpx'), 'r')
     g, path_nodes, path_network, nodes_id, node_coordinates = create_network(tree)
     bluebell_walk, coords = import_gpx(gpx_file)
-    first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(nodes_id, node_coordinates, coords)
-    path_gpd = gpx_to_network(first_node, last_node, g, path_network)
-    plot_map(sheepstor_map, first_coordinate, last_coordinate, coords,
-             bluebell_walk, path_network, path_nodes, path_gpd)
+
+    start_point = coords[0]
+    for coord in coords[1:]:
+        first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(nodes_id, node_coordinates, start_point, coord)
+        path_gpd = gpx_to_path(first_node, last_node, g, path_network)
+        plot_map(sheepstor_map, first_coordinate, last_coordinate, coords,
+                 bluebell_walk, path_network, path_nodes, path_gpd)
+        start_point = coord
 
 
 if __name__ == '__main__':
