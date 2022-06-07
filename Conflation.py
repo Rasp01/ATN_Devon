@@ -145,9 +145,9 @@ def plot_global_map(sheepstor_map, first_coordinate, last_coordinate, coords,
     plt.scatter(*zip(*coords), color='red', s=1, zorder=3)
     path_network.plot(ax=ax, edgecolor='blue', linewidth=0.5, zorder=4)
     path_nodes.plot(ax=ax, color='blue', markersize=1, zorder=4)
-    path_gpd.plot(ax=ax, edgecolor='green', linewidth=0.5, zorder=5)
-    display_extent = ((first_coordinate[0] - 1500, first_coordinate[0] + 1500,
-                       first_coordinate[1] - 1500, first_coordinate[1] + 1500))
+    path_gpd.plot(ax=ax, edgecolor='green', linewidth=1, zorder=5)
+    display_extent = ((first_coordinate[0] - 500, first_coordinate[0] + 2200,
+                       first_coordinate[1] - 500, first_coordinate[1] + 2200))
     ax.set_extent(display_extent, crs=crs.OSGB())
     plt.show()
 
