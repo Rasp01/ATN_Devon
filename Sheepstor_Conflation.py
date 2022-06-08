@@ -54,20 +54,26 @@ def import_gpx(gpx_file):
     osgb36 = CRS.from_epsg(27700)
     transformer = Transformer.from_crs(wsg84, osgb36)
 
-    routes = gpx.routes
-    waypoints = routes[0].points
     coords = []
+    if gpx.waypoints:
+        waypoints = gpx.waypoints
+    else:
+        routes = gpx.routes
+        waypoints = routes[0].points
+
     for waypoint in waypoints:
         coords.append(transformer.transform(waypoint.latitude, waypoint.longitude))
-    bluebell_walk = gpd.GeoDataFrame(index=[0], crs='epsg:27700', geometry=[LineString(coords)])
-    #bluebell_walk.plot()
+
+    route_gpd = gpd.GeoDataFrame(index=[0], crs='epsg:27700', geometry=[LineString(coords)])
+    #route_gpd.plot()
 
     bounds = []
     for bound in gpx.bounds:
         bounds.append(bound)
     top_right = (transformer.transform(bounds[1], bounds[3]))
     bottom_left = (transformer.transform(bounds[0], bounds[2]))
-    return bluebell_walk, coords, top_right, bottom_left
+
+    return route_gpd, coords, top_right, bottom_left
 
 
 def get_nearest_nodes(nodes_id, node_coordinates, start_point, coord, global_nodes):
@@ -138,7 +144,7 @@ def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_link
 
 
 def plot_global_map(sheepstor_map, global_nodes_gpd, coords,
-             bluebell_walk, path_network, path_nodes, path_gpd, top_right, bottom_left):
+             route_gpd, path_network, path_nodes, path_gpd, top_right, bottom_left):
     back_array = sheepstor_map.read(1)
     palette = np.array([value for key, value in sheepstor_map.colormap(1).items()])
     background_image = palette[back_array]
@@ -147,11 +153,10 @@ def plot_global_map(sheepstor_map, global_nodes_gpd, coords,
     fig = plt.figure(figsize=(3, 3), dpi=500)
     ax = fig.add_subplot(1, 1, 1, projection=crs.OSGB())
     ax.imshow(background_image, origin='upper', extent=extent, zorder=0)
-    #plt.scatter(*zip(*global_nodes), color='green', markersize=1, zorder=5)
-    bluebell_walk.plot(ax=ax, edgecolor='red', linewidth=0.5, zorder=2)
+    route_gpd.plot(ax=ax, edgecolor='red', linewidth=0.5, zorder=2)
     plt.scatter(*zip(*coords), color='red', s=1, zorder=3)
-    path_network.plot(ax=ax, edgecolor='blue', linewidth=0.5, zorder=4)
-    path_nodes.plot(ax=ax, color='blue', markersize=1, zorder=4)
+    # path_network.plot(ax=ax, edgecolor='blue', linewidth=0.5, zorder=4)
+    # path_nodes.plot(ax=ax, color='blue', markersize=1, zorder=4)
     path_gpd.plot(ax=ax, edgecolor='green', linewidth=1, zorder=5)
     global_nodes_gpd.plot(ax=ax, color='yellow', markersize=1, zorder=6)
     display_extent = ((bottom_left[0] - 100, top_right[0] + 100,
@@ -166,7 +171,7 @@ def main():
 
     tree = ET.parse(os.path.join('Detailed-Path-Network', 'DARTMOOR NATIONAL PARK.gml'))
 
-    gpx_file = open(os.path.join('Walking routes', 'Sheeps Tor.gpx'), 'r')
+    gpx_file = open(os.path.join('Walking routes', 'Bluebell walk.gpx'), 'r')
     g, path_nodes, path_network, nodes_id, node_coordinates = create_network(tree)
     bluebell_walk, coords, top_right, bottom_left = import_gpx(gpx_file)
 
@@ -175,7 +180,7 @@ def main():
     global_nodes = []
     start_point = coords[0]
     for coord in coords[1:]:
-        first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(nodes_id, node_coordinates, start_point, coord, global_nodes,)
+        first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(nodes_id, node_coordinates, start_point, coord, global_nodes)
         path_gpd = gpx_to_path(first_node, last_node, g, path_network, global_geom, global_links)
         # plot_map(sheepstor_map, first_coordinate, last_coordinate, coords,
         #          bluebell_walk, path_network, path_nodes, path_gpd)
