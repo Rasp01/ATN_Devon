@@ -73,7 +73,7 @@ def import_gpx(gpx_file):
     return route_gpd, points, top_right, bottom_left
 
 
-def get_nearest_nodes(node_ids, node_coordinates, first_point, points, global_nodes):
+def get_nearest_nodes(node_ids, node_coordinates, first_point, points, global_nodes,global_missing_links):
     idx = index.Index()
 
     # set the bounds for the index
@@ -93,6 +93,9 @@ def get_nearest_nodes(node_ids, node_coordinates, first_point, points, global_no
         last_node = ("#" + node_ids[i])
         global_nodes.append(Point(last_coordinate))
 
+    if first_coordinate == last_coordinate:
+        print('Same node')
+        global_missing_links.append(LineString(zip(first_point, points)))
     return first_coordinate, first_node, last_coordinate, last_node
 
 
@@ -116,7 +119,7 @@ def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_link
 
         path_gpd = gpd.GeoDataFrame({'fid': links, 'geometry': geom})
         print('Plotting Path')
-        path_gpd.plot()
+        #path_gpd.plot()
         return path_gpd
 
 
@@ -144,7 +147,7 @@ def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_link
 
 
 def plot_global_map(raster_map, global_nodes_gpd, points,
-             route_gpd, path_network, path_nodes, path_gpd, top_right, bottom_left):
+             route_gpd, path_network, path_nodes, path_gpd, top_right, bottom_left, global_missing_links_gpd):
     back_array = raster_map.read(1)
     palette = np.array([value for key, value in raster_map.colormap(1).items()])
     background_image = palette[back_array]
@@ -154,14 +157,16 @@ def plot_global_map(raster_map, global_nodes_gpd, points,
 
     ax = fig.add_subplot(1, 1, 1, projection=crs.OSGB())
     ax.imshow(background_image, origin='upper', extent=extent, zorder=0)
-    route_gpd.plot(ax=ax, edgecolor='red', linewidth=0.5, zorder=2)
-    plt.scatter(*zip(*points), color='red', s=1, zorder=3)
+    route_gpd.plot(ax=ax, edgecolor='blue', linewidth=0.5, zorder=2)
+    plt.scatter(*zip(*points), color='blue', s=1, zorder=3)
 
     # path_network.plot(ax=ax, edgecolor='blue', linewidth=0.5, zorder=4)
     # path_nodes.plot(ax=ax, color='blue', markersize=1, zorder=4)
 
+    global_missing_links_gpd.plot(ax=ax, color='red', linewidth=1, zorder=6)
+
     path_gpd.plot(ax=ax, edgecolor='green', linewidth=1, zorder=5)
-    global_nodes_gpd.plot(ax=ax, color='yellow', markersize=1, zorder=6)
+    global_nodes_gpd.plot(ax=ax, color='yellow', markersize=1, zorder=5)
 
     display_extent = ((bottom_left[0] - 100, top_right[0] + 100,
                        bottom_left[1] - 100, top_right[1] + 100))
@@ -184,17 +189,21 @@ def main():
     global_geom = []
     global_links = []
     global_nodes = []
+    global_missing_links = []
     start_point = coords[0]
     for coord in coords[1:]:
-        first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(nodes_id, node_coordinates, start_point, coord, global_nodes)
+        first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(nodes_id, node_coordinates, start_point, coord, global_nodes, global_missing_links)
         path_gpd = gpx_to_path(first_node, last_node, g, path_network, global_geom, global_links)
         # plot_map(sheepstor_map, first_coordinate, last_coordinate, coords,
         #          bluebell_walk, path_network, path_nodes, path_gpd)
         start_point = coord
     global_path_gpd = gpd.GeoDataFrame({'fid': global_links, 'geometry': global_geom})
     global_nodes_gpd = gpd.GeoDataFrame({'geometry': global_nodes})
+    global_missing_links_gpd = gpd.GeoDataFrame({'geometry': global_missing_links})
+    global_missing_links_gpd.plot()
+
     plot_global_map(sheepstor_map, global_nodes_gpd, coords,
-             bluebell_walk, path_network, path_nodes, global_path_gpd, top_right, bottom_left)
+             bluebell_walk, path_network, path_nodes, global_path_gpd, top_right, bottom_left, global_missing_links_gpd)
 
 
 if __name__ == '__main__':
