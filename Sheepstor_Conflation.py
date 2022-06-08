@@ -98,23 +98,26 @@ def get_nearest_nodes(node_ids, node_coordinates, first_point, points, global_no
 
 def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_links):
     path = nx.dijkstra_path(g, first_node, last_node, weight='weight')
+    if len(path) == 1:
+        print('path list only contains 1 node')
+    else:
+        geom = []
+        links = []
 
-    geom = []
-    links = []
+        first_node = path[0]
+        for node in path[1:]:
+            link_fid = g.edges[first_node, node]['fid']
+            links.append(link_fid)
+            global_links.append(link_fid)
+            row = path_network.loc[path_network['gml_id'] == link_fid]
+            geom.append(row['geometry'].cascaded_union)
+            global_geom.append(row['geometry'].cascaded_union)
+            first_node = node
 
-    first_node = path[0]
-    for node in path[1:]:
-        link_fid = g.edges[first_node, node]['fid']
-        links.append(link_fid)
-        global_links.append(link_fid)
-        row = path_network.loc[path_network['gml_id'] == link_fid]
-        geom.append(row['geometry'].cascaded_union)
-        global_geom.append(row['geometry'].cascaded_union)
-        first_node = node
-
-    path_gpd = gpd.GeoDataFrame({'fid': links, 'geometry': geom})
-    #path_gpd.plot()
-    return path_gpd
+        path_gpd = gpd.GeoDataFrame({'fid': links, 'geometry': geom})
+        print('Plotting Path')
+        path_gpd.plot()
+        return path_gpd
 
 
 # def plot_map(sheepstor_map, first_coordinate, last_coordinate, coords,
@@ -174,7 +177,7 @@ def main():
 
     tree = ET.parse(os.path.join('Detailed-Path-Network', 'DARTMOOR NATIONAL PARK.gml'))
 
-    gpx_file = open(os.path.join('Walking routes', 'Bluebell walk.gpx'), 'r')
+    gpx_file = open(os.path.join('Walking routes', 'Sheeps Tor.gpx'), 'r')
     g, path_nodes, path_network, nodes_id, node_coordinates = create_network(tree,path_network)
     bluebell_walk, coords, top_right, bottom_left = import_gpx(gpx_file)
 
