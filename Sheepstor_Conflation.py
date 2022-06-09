@@ -1,8 +1,10 @@
+import shapely.wkt
 from shapely.geometry import Point, LineString
 import numpy as np
 import rasterio
 from rtree import index
 import networkx as nx
+import pandas as pd
 import geopandas as gpd
 import os
 import matplotlib.pyplot as plt
@@ -73,7 +75,7 @@ def import_gpx(gpx_file):
     return route_gpd, points, top_right, bottom_left
 
 
-def get_nearest_nodes(node_ids, node_coordinates, first_point, points, global_nodes,global_missing_links):
+def get_nearest_nodes(node_ids, node_coordinates, first_point, point, global_nodes,global_missing_links):
     idx = index.Index()
 
     # set the bounds for the index
@@ -87,7 +89,7 @@ def get_nearest_nodes(node_ids, node_coordinates, first_point, points, global_no
         # need to add # so that it is identified in with the link
         first_node = ("#" + node_ids[i])
         global_nodes.append(Point(first_coordinate))
-    for i in idx.nearest(points, 1):
+    for i in idx.nearest(point, 1):
         last_coordinate = node_coordinates[i]
         # need to add # so that it is identified in with the link
         last_node = ("#" + node_ids[i])
@@ -95,14 +97,15 @@ def get_nearest_nodes(node_ids, node_coordinates, first_point, points, global_no
 
     if first_coordinate == last_coordinate:
         print('Same node')
-        global_missing_links.append(LineString(zip(first_point, points)))
+        #plt.plot(LineString(zip(first_point, point)))
+        global_missing_links.append(LineString([first_point, point]))
     return first_coordinate, first_node, last_coordinate, last_node
 
 
 def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_links):
     path = nx.dijkstra_path(g, first_node, last_node, weight='weight')
     if len(path) == 1:
-        print('path list only contains 1 node')
+         print('path list only contains 1 node')
     else:
         geom = []
         links = []
@@ -118,7 +121,7 @@ def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_link
             first_node = node
 
         path_gpd = gpd.GeoDataFrame({'fid': links, 'geometry': geom})
-        print('Plotting Path')
+        #print('Plotting Path')
         #path_gpd.plot()
         return path_gpd
 
@@ -145,6 +148,8 @@ def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_link
 #     ax.set_extent(display_extent, crs=crs.OSGB())
 #     plt.show()
 
+def plot_missing_links(global_missing_links_gpd, global_missing_links):
+    global_missing_links_gpd.plot()
 
 def plot_global_map(raster_map, global_nodes_gpd, points,
              route_gpd, path_network, path_nodes, path_gpd, top_right, bottom_left, global_missing_links_gpd):
@@ -182,7 +187,7 @@ def main():
 
     tree = ET.parse(os.path.join('Detailed-Path-Network', 'DARTMOOR NATIONAL PARK.gml'))
 
-    gpx_file = open(os.path.join('Walking routes', 'Sheeps Tor.gpx'), 'r')
+    gpx_file = open(os.path.join('Walking routes', 'Bluebell walk.gpx'), 'r')
     g, path_nodes, path_network, nodes_id, node_coordinates = create_network(tree,path_network)
     bluebell_walk, coords, top_right, bottom_left = import_gpx(gpx_file)
 
@@ -199,8 +204,13 @@ def main():
         start_point = coord
     global_path_gpd = gpd.GeoDataFrame({'fid': global_links, 'geometry': global_geom})
     global_nodes_gpd = gpd.GeoDataFrame({'geometry': global_nodes})
+
+
     global_missing_links_gpd = gpd.GeoDataFrame({'geometry': global_missing_links})
-    global_missing_links_gpd.plot()
+    #global_missing_links_gpd.to_file("")
+
+    plot_missing_links(global_missing_links_gpd,global_missing_links)
+
 
     plot_global_map(sheepstor_map, global_nodes_gpd, coords,
              bluebell_walk, path_network, path_nodes, global_path_gpd, top_right, bottom_left, global_missing_links_gpd)
