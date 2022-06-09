@@ -17,14 +17,14 @@ def create_network(gml, gml_gpd):
     root = gml.getroot()
     startnodes = [startNode.attrib for startNode in
                   root.iter('{http://namespaces.os.uk/networks/detailedPathNetwork/1.0}startNode')]
-    gml_gpd['startNodes']  = [nodes['{http://www.w3.org/1999/xlink}href'] for nodes in startnodes]
+    gml_gpd['startNodes'] = [nodes['{http://www.w3.org/1999/xlink}href'] for nodes in startnodes]
     endnodes = [endNode.attrib for endNode in
                 root.iter('{http://namespaces.os.uk/networks/detailedPathNetwork/1.0}endNode')]
     gml_gpd['endNodes'] = [nodes['{http://www.w3.org/1999/xlink}href'] for nodes in endnodes]
 
     nodes_id = [nodes.attrib for nodes in
                 root.iter('{http://namespaces.os.uk/networks/detailedPathNetwork/1.0}RouteNode')]
-    node_ids= [node['{http://www.opengis.net/gml/3.2}id'] for node in nodes_id]
+    node_ids = [node['{http://www.opengis.net/gml/3.2}id'] for node in nodes_id]
 
     network_coords = [geom.text for geom in root.iter('{http://www.opengis.net/gml/3.2}pos')]
     node_coordinates = []
@@ -61,8 +61,8 @@ def import_gpx(gpx_file):
     for waypoint in waypoints:
         points.append(transformer.transform(waypoint.latitude, waypoint.longitude))
 
-    route_gpd = gpd.GeoDataFrame(index=[0], crs='epsg:27700', geometry=[LineString(points)])
-    #route_gpd.plot()
+    route_gpd = gpd.GeoSeries(LineString(points))
+    # route_gpd.plot()
 
     bounds = []
     for bound in gpx.bounds:
@@ -73,7 +73,7 @@ def import_gpx(gpx_file):
     return route_gpd, points, top_right, bottom_left
 
 
-def get_nearest_nodes(node_ids, node_coordinates, first_point, point, global_nodes,global_missing_links):
+def get_nearest_nodes(node_ids, node_coordinates, first_point, point, global_nodes, global_missing_links):
     idx = index.Index()
 
     # set the bounds for the index
@@ -94,17 +94,15 @@ def get_nearest_nodes(node_ids, node_coordinates, first_point, point, global_nod
         global_nodes.append(Point(last_coordinate))
 
     if first_coordinate == last_coordinate:
-        print('Same node')
-        #plt.plot(LineString(zip(first_point, point)))
+        #print('Same node')
+        # plt.plot(LineString(zip(first_point, point)))
         global_missing_links.append(LineString([first_point, point]))
     return first_coordinate, first_node, last_coordinate, last_node
 
 
 def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_links):
     path = nx.dijkstra_path(g, first_node, last_node, weight='weight')
-    if len(path) == 1:
-         print('path list only contains 1 node')
-    else:
+    if len(path) != 1:
         geom = []
         links = []
 
@@ -119,8 +117,8 @@ def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_link
             first_node = node
 
         path_gpd = gpd.GeoDataFrame({'fid': links, 'geometry': geom})
-        #print('Plotting Path')
-        #path_gpd.plot()
+        # print('Plotting Path')
+        # path_gpd.plot()
         return path_gpd
 
 
@@ -146,7 +144,7 @@ def gpx_to_path(first_node, last_node, g, path_network, global_geom, global_link
 #     ax.set_extent(display_extent, crs=crs.OSGB())
 #     plt.show()
 
-def calculate_missing_sections(global_missing_links, path_gpd):
+def calculate_missing_sections(global_missing_links, path_gpd, route_gpd):
     missing_links = []
     path_geoseries = gpd.GeoSeries(path_gpd['geometry'])
     # account for missing nodes that are on the path due to being so small there nodes were the same
@@ -155,24 +153,23 @@ def calculate_missing_sections(global_missing_links, path_gpd):
             print("Line is present on final path ")
         else:
             missing_links.append(link)
-        # if path_geoseries.intersects(link) == True:
-        #     print("Line is present on final path ")
-        # else:
-        #     missing_links.append(link)
-    #global_missing_links_gpd = gpd.GeoSeries(global_missing_links)
+    # global_missing_links_gpd = gpd.GeoSeries(global_missing_links)
     global_missing_links_gpd = gpd.GeoSeries(missing_links)
+    #global_missing_links_gpd.to_file("global_missing_links_gpd")
 
     return global_missing_links_gpd
+
 
 def plot_missing_links(global_missing_links_gpd, global_missing_links):
     global_missing_links_gpd.plot()
 
+
 def plot_global_map(raster_map, global_nodes_gpd, points,
-             route_gpd, path_network, path_nodes, path_gpd, top_right, bottom_left, global_missing_links_gpd):
+                    route_gpd, path_network, path_nodes, path_gpd, top_right, bottom_left, global_missing_links_gpd):
     back_array = raster_map.read(1)
     palette = np.array([value for key, value in raster_map.colormap(1).items()])
     background_image = palette[back_array]
-    bounds =  raster_map.bounds
+    bounds = raster_map.bounds
     extent = (bounds.left, bounds.right, bounds.bottom, bounds.top)
     fig = plt.figure(figsize=(3, 3), dpi=500)
 
@@ -203,8 +200,9 @@ def main():
 
     tree = ET.parse(os.path.join('Detailed-Path-Network', 'DARTMOOR NATIONAL PARK.gml'))
 
-    gpx_file = open(os.path.join('Walking routes', 'PFDartmoorwalk7BurratorReservoir.gpx'), 'r')
-    g, path_nodes, path_network, nodes_id, node_coordinates = create_network(tree,path_network)
+    #PFDartmoorwalk7BurratorReservoir
+    gpx_file = open(os.path.join('Walking routes', 'Bluebell walk.gpx'), 'r')
+    g, path_nodes, path_network, nodes_id, node_coordinates = create_network(tree, path_network)
     bluebell_walk, coords, top_right, bottom_left = import_gpx(gpx_file)
 
     global_geom = []
@@ -213,20 +211,23 @@ def main():
     global_missing_links = []
     start_point = coords[0]
     for coord in coords[1:]:
-        first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(nodes_id, node_coordinates, start_point, coord, global_nodes, global_missing_links)
+        first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(nodes_id, node_coordinates,
+                                                                                     start_point, coord, global_nodes,
+                                                                                     global_missing_links)
         path_gpd = gpx_to_path(first_node, last_node, g, path_network, global_geom, global_links)
         # plot_map(sheepstor_map, first_coordinate, last_coordinate, coords,
         #          bluebell_walk, path_network, path_nodes, path_gpd)
         start_point = coord
     global_path_gpd = gpd.GeoDataFrame({'fid': global_links, 'geometry': global_geom})
+    #global_path_gpd.to_file("global_path_gpd")
     global_nodes_gpd = gpd.GeoDataFrame({'geometry': global_nodes})
 
-    global_missing_links_gpd = calculate_missing_sections(global_missing_links, global_path_gpd)
+    global_missing_links_gpd = calculate_missing_sections(global_missing_links, global_path_gpd,bluebell_walk)
     plot_missing_links(global_missing_links_gpd, global_missing_links)
 
-
     plot_global_map(sheepstor_map, global_nodes_gpd, coords,
-             bluebell_walk, path_network, path_nodes, global_path_gpd, top_right, bottom_left, global_missing_links_gpd)
+                    bluebell_walk, path_network, path_nodes, global_path_gpd, top_right, bottom_left,
+                    global_missing_links_gpd)
 
 
 if __name__ == '__main__':
