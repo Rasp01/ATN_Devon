@@ -202,6 +202,7 @@ def main():
     tree = ET.parse(os.path.join('Detailed-Path-Network', 'DARTMOOR NATIONAL PARK.gml'))
 
     # PFDartmoorwalk7BurratorReservoir
+    #Sheeps Tor
     gpx_file = open(os.path.join('Walking routes', 'Bluebell walk.gpx'), 'r')
     g, path_nodes, path_network, nodes_id, node_coordinates = create_network(tree, path_network)
     bluebell_walk, coords, top_right, bottom_left = import_gpx(gpx_file)
