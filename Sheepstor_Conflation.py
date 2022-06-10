@@ -41,8 +41,16 @@ def create_network(gml, gml_gpd):
     for index, row in gml_gpd.iterrows():
         graph.add_edge(row['startNodes'], row['endNodes'], fid=row['gml_id'], weight=row['planimetricLength'])
 
-    return graph, network_nodes, gml_gpd, node_ids, node_coordinates
+    return graph, network_nodes
 
+def create_index(network_nodes):
+    idx = index.Index()
+    # set the bounds for the index
+    for i in range(len(network_nodes['fid'])):
+        left, bottom, right, top = (network_nodes['geometry'][i].x, network_nodes['geometry'][i].y,
+                                    network_nodes['geometry'][i].x, network_nodes['geometry'][i].y)
+        idx.insert(i, (left, bottom, right, top))
+    return idx
 
 def import_gpx(gpx_file):
     gpx = gpxpy.parse(gpx_file)
@@ -73,25 +81,17 @@ def import_gpx(gpx_file):
     return route_gpd, points, top_right, bottom_left
 
 
-def get_nearest_nodes(node_ids, node_coordinates, first_point, point, global_nodes, global_missing_links):
-    idx = index.Index()
-
-    # set the bounds for the index
-    for i in range(len(node_ids)):
-        left, bottom, right, top = (node_coordinates[i][0], node_coordinates[i][1],
-                                    node_coordinates[i][0], node_coordinates[i][1])
-        idx.insert(i, (left, bottom, right, top))
-
+def get_nearest_nodes(idx, network_nodes, first_point, point, global_nodes, global_missing_links):
     for i in idx.nearest(first_point, 1):
-        first_coordinate = node_coordinates[i]
+        first_coordinate = network_nodes['geometry'][i]
         # need to add # so that it is identified in with the link
-        first_node = ("#" + node_ids[i])
-        global_nodes.append(Point(first_coordinate))
+        first_node = ("#" + network_nodes['fid'][i].get('{http://www.opengis.net/gml/3.2}id'))
+        global_nodes.append(first_coordinate)
     for i in idx.nearest(point, 1):
-        last_coordinate = node_coordinates[i]
+        last_coordinate = network_nodes['geometry'][i]
         # need to add # so that it is identified in with the link
-        last_node = ("#" + node_ids[i])
-        global_nodes.append(Point(last_coordinate))
+        last_node = ("#" + network_nodes['fid'][i].get('{http://www.opengis.net/gml/3.2}id'))
+        global_nodes.append(last_coordinate)
 
     if first_coordinate == last_coordinate:
         # print('Same node')
@@ -204,7 +204,8 @@ def main():
     # PFDartmoorwalk7BurratorReservoir
     #Sheeps Tor
     gpx_file = open(os.path.join('Walking routes', 'Bluebell walk.gpx'), 'r')
-    g, path_nodes, path_network, nodes_id, node_coordinates = create_network(tree, path_network)
+    g, path_nodes = create_network(tree, path_network)
+    idx = create_index(path_nodes)
     bluebell_walk, coords, top_right, bottom_left = import_gpx(gpx_file)
 
     global_geom = []
@@ -213,8 +214,8 @@ def main():
     global_missing_links = []
     start_point = coords[0]
     for coord in coords[1:]:
-        first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(nodes_id, node_coordinates,
-                                                                                     start_point, coord, global_nodes,
+        first_coordinate, first_node, last_coordinate, last_node = get_nearest_nodes(
+                                                                                     idx, path_nodes, start_point, coord, global_nodes,
                                                                                      global_missing_links)
         path_gpd = gpx_to_path(first_node, last_node, g, path_network, global_geom, global_links)
         # plot_map(sheepstor_map, first_coordinate, last_coordinate, coords,
