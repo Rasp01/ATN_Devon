@@ -97,7 +97,6 @@ def create_links(network_nodes):
     network_links = gpd.GeoDataFrame({'fid':links_fid,'startnode':start_node,
                                       'endnode':end_node,'length':length,'angle':angles,
                                       'climb_time_forward':climb_time,'geometry':lines})
-    network_links['fid'] = 'al_' + network_links['fid'].astype(str)
 
     G = network_links['geometry'].apply(lambda geom: geom.wkb)
     network_links=network_links.loc[G.drop_duplicates().index]
