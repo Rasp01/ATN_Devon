@@ -4,7 +4,6 @@ from shapely.geometry import Point, mapping, LineString, Polygon, MultiPoint
 import numpy as np
 import rasterio
 from rasterio import plot, mask
-from rtree import index
 import networkx as nx
 import pandas as pd
 import geopandas as gpd
@@ -48,6 +47,8 @@ def create_osdpn_buffers(network_links, osdpn_gpd):
     network_links = network_links.join(dpn)
     network_links_dpn = network_links
     network_links_dpn = network_links_dpn[network_links_dpn['dpn'] != 3]
+
+
 
     network_links, network_links_dpn = create_buffer(network_links, network_links_dpn, osdpn_gpd, 40, 4)
     network_links, network_links_dpn = create_buffer(network_links, network_links_dpn, osdpn_gpd, 80, 5)
@@ -1138,18 +1139,18 @@ def create_dpn_grid(osdpn_gpd, osdpn_intercept_points, network_links):
                             angles.append(angle)
                             dpn.append(0)
 
-    dpn_paths_nodes = gpd.GeoDataFrame({'fid': fid, 'height': height, 'DPN': 0, 'geometry': geom_points}, crs=27700)
+    dpn_paths_nodes = gpd.GeoDataFrame({'fid': fid, 'height': height, 'dpn': 0, 'geometry': geom_points}, crs=27700)
 
     links_fid = range(1, len(geom_lines) + 1)
     dpn_paths_links = gpd.GeoDataFrame({'fid': links_fid, 'startnode': start_node,
                                         'endnode': end_node, 'length': length, 'angle': angles,
-                                        'climb_time_forward': climb_time_forward, 'DPN': dpn, 'geometry': geom_lines},
+                                        'climb_time_forward': climb_time_forward, 'dpn': dpn, 'geometry': geom_lines},
                                        crs=27700)
 
     dpn_paths_links['fid'] = 'dpn_' + dpn_paths_links['fid'].astype(str)
 
     G = dpn_paths_nodes.geometry.apply(lambda geom: geom.wkb)
-    DPN_paths_nodes = dpn_paths_nodes.loc[G.drop_duplicates().index]
+    dpn_paths_nodes = dpn_paths_nodes.loc[G.drop_duplicates().index]
 
     G = dpn_paths_links.geometry.apply(lambda geom: geom.wkb)
     dpn_paths_links = dpn_paths_links.loc[G.drop_duplicates().index]
@@ -1180,8 +1181,8 @@ def access_land_removal(access_land, network_nodes, network_links):
     outside_nodes = network_nodes.drop(intersecting_nodes.index)
     outside_links = network_links.drop(intersecting_links.index)
 
-    intersecting_nodes_removed = outside_nodes.query('DPN != 0')
-    intersecting_links_removed = outside_links.query('DPN != 0')
+    intersecting_nodes_removed = outside_nodes.query('dpn != 0')
+    intersecting_links_removed = outside_links.query('dpn != 0')
 
     network_nodes = network_nodes.drop(intersecting_nodes_removed.index)
     network_links = network_links.drop(intersecting_links_removed.index)
@@ -1195,8 +1196,8 @@ def remove_from_network(all_obstructions, network_nodes, network_links):
 
     intersecting_nodes = gpd.sjoin(network_nodes, obstructions_gpd)
     intersecting_links = gpd.sjoin(network_links, obstructions_gpd)
-    intersecting_links = intersecting_links.drop(intersecting_links[(intersecting_links.DPN == 0)].index)
-    intersecting_nodes = intersecting_nodes.drop(intersecting_nodes[(intersecting_nodes.DPN == 0)].index)
+    intersecting_links = intersecting_links.drop(intersecting_links[(intersecting_links.dpn == 0)].index)
+    intersecting_nodes = intersecting_nodes.drop(intersecting_nodes[(intersecting_nodes.dpn == 0)].index)
 
     network_nodes = network_nodes[~ network_nodes.isin(intersecting_nodes)].dropna()
     cond = network_links['fid'].isin(intersecting_links['fid'])
@@ -1284,7 +1285,9 @@ def create_graph(network_links):
 
 
 def create_paths(graph):
-    points = ["al_6", "al_1670"]
+    # points = ["al_6", "al_1670"]
+    points = ["int_dpn27", "dpn_271"]
+
     # get the shortest path with time weight
     weighted_path_forward = nx.dijkstra_path(graph, source=points[0], target=points[1], weight='time')
     weighted_path_backward = nx.dijkstra_path(graph, source=points[1], target=points[0], weight='time')
@@ -1321,10 +1324,10 @@ def plot_network(background_map, study_area_shapely, network_nodes, network_link
     ax.imshow(background_image, origin='upper', extent=extent, zorder=0)
 
     # displaying nodes
-    network_nodes.plot(ax=ax, zorder=3, markersize=0.2, alpha=0.1)
+    network_nodes.plot(ax=ax, zorder=3, markersize=0.2, alpha=0.5)
 
     # displaying links
-    network_links.plot(ax=ax, zorder=2, edgecolor='blue', linewidth=0.2, alpha=0.1)
+    network_links.plot(ax=ax, zorder=2, edgecolor='blue', linewidth=0.2, alpha=0.5)
 
     # display path
     weighted_path_forward.plot(ax=ax, zorder=4, edgecolor='red', linewidth=0.7, label='surface cost')
@@ -1342,7 +1345,7 @@ OS_National_Grids = gpd.read_file(
     os.path.join('OS-British-National-Grids-main', 'OS-British-National-Grids-main', 'os_bng_grids.gpkg'),
     layer='1km_grid')
 
-study_area_shapely = OS_National_Grids[OS_National_Grids['tile_name'] == "SX7677"].geometry.cascaded_union
+study_area_shapely = OS_National_Grids[OS_National_Grids['tile_name'] == "SX7478"].geometry.cascaded_union
 study_area = mapping(study_area_shapely)
 
 SX77_map = rasterio.open(
@@ -1350,8 +1353,11 @@ SX77_map = rasterio.open(
 
 # elevation = rasterio.open(os.path.join('OS Elevation','SX77_elevation','terrain-5-dtm_4616587','sx','sx77ne_nw','w001001.adf'))
 
-network_links = gpd.read_file(os.path.join('Study_area', 'SX7677', 'Final Networks', 'network_links_al.geojson'))
-network_nodes = gpd.read_file(os.path.join('Study_area', 'SX7677', 'Final Networks', 'network_nodes_al.geojson'))
+# network_links = gpd.read_file(os.path.join('Study_area', 'SX7677', 'Final Networks', 'network_links_al.geojson'))
+# network_nodes = gpd.read_file(os.path.join('Study_area', 'SX7677', 'Final Networks', 'network_nodes_al.geojson'))
+
+network_links = gpd.read_file(os.path.join('Study_area', 'SX7478', 'network_links_al.geojson'))
+network_nodes = gpd.read_file(os.path.join('Study_area', 'SX7478', 'network_nodes_al.geojson'))
 
 path_network = gpd.read_file(os.path.join('Detailed-Path-Network', 'DARTMOOR NATIONAL PARK.gml'), layer='RouteLink')
 
@@ -1378,8 +1384,11 @@ osdpn_intercept_points = create_intercept_points(osdpn_gpd)
 
 dpn_paths_nodes, dpn_paths_links, drop_fid = create_dpn_grid(osdpn_gpd, osdpn_intercept_points, network_links)
 
-dpn_paths_nodes.to_file("Study_area/SX7677/Final Networks/dpn_paths_nodes.geojson", driver='GeoJSON', crs='EPSG:27700')
-dpn_paths_links.to_file("Study_area/SX7677/Final Networks/dpn_paths_links.geojson", driver='GeoJSON', crs='EPSG:27700')
+# dpn_paths_nodes.to_file("Study_area/SX7677/Final Networks/dpn_paths_nodes.geojson", driver='GeoJSON', crs='EPSG:27700')
+# dpn_paths_links.to_file("Study_area/SX7677/Final Networks/dpn_paths_links.geojson", driver='GeoJSON', crs='EPSG:27700')
+
+# dpn_paths_nodes.to_file("Study_area/SX7478/dpn_paths_nodes.geojson", driver='GeoJSON', crs='EPSG:27700')
+# dpn_paths_links.to_file("Study_area/SX7478/dpn_paths_links.geojson", driver='GeoJSON', crs='EPSG:27700')
 
 network_nodes, network_links = intergrate_dpn(dpn_paths_nodes, network_nodes, dpn_paths_links, network_links, drop_fid)
 
@@ -1393,8 +1402,11 @@ network_nodes, network_links = land_cover_classification(land_use, network_nodes
 
 network_links = naismiths_rule(network_links)
 
-network_links.to_file("Study_area/SX7677/Final Networks/network_links_dpn.geojson", driver='GeoJSON', crs='EPSG:27700')
-network_nodes.to_file("Study_area/SX7677/Final Networks/network_nodes_dpn.geojson", driver='GeoJSON', crs='EPSG:27700')
+# network_links.to_file("Study_area/SX7677/Final Networks/network_links_dpn.geojson", driver='GeoJSON', crs='EPSG:27700')
+# network_nodes.to_file("Study_area/SX7677/Final Networks/network_nodes_dpn.geojson", driver='GeoJSON', crs='EPSG:27700')
+
+# network_links.to_file("Study_area/SX7478/network_links_dpn.geojson", driver='GeoJSON', crs='EPSG:27700')
+# network_nodes.to_file("Study_area/SX7478/network_nodes_dpn.geojson", driver='GeoJSON', crs='EPSG:27700')
 
 graph = create_graph(network_links)
 
