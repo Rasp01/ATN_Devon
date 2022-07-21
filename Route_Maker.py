@@ -108,14 +108,16 @@ def plot_network(background_map, study_area_shapely, network_nodes, network_link
 OS_National_Grids = gpd.read_file(
     os.path.join('OS-British-National-Grids-main', 'OS-British-National-Grids-main', 'os_bng_grids.gpkg'),
     layer='1km_grid')
-study_area_shapely = OS_National_Grids[OS_National_Grids['tile_name'] == "SX7677"].geometry.cascaded_union
+study_area_shapely = OS_National_Grids[OS_National_Grids['tile_name'] == "SX7478"].geometry.cascaded_union
 
 SX77_map = rasterio.open(
     os.path.join('OS Explorer Maps', 'Download_SX77-Haytor_2033809', 'raster-25k_4596071', 'sx', 'sx77.tif'))
 
-network_links = gpd.read_file(os.path.join('Study_area', 'SX7677','Final Networks', 'network_links_dpn.geojson'))
-network_nodes = gpd.read_file(os.path.join('Study_area','SX7677','Final Networks', 'network_nodes_dpn.geojson'))
+# network_links = gpd.read_file(os.path.join('Study_area', 'SX7677','Final Networks', 'network_links_dpn.geojson'))
+# network_nodes = gpd.read_file(os.path.join('Study_area','SX7677','Final Networks', 'network_nodes_dpn.geojson'))
 
+network_links = gpd.read_file(os.path.join('Study_area', 'SX7478', 'network_links_dpn.geojson'))
+network_nodes = gpd.read_file(os.path.join('Study_area','SX7478', 'network_nodes_dpn.geojson'))
 
 # Points for Haytor
 
@@ -126,7 +128,15 @@ network_nodes = gpd.read_file(os.path.join('Study_area','SX7677','Final Networks
 # points = ['dpn_408', 'dpn_298']
 
 # from top_righ to haytor rocks path
-points = ['al_1681','int_dpn1']
+# points = ['al_1681','int_dpn1']
+
+# Points for Hound Tor
+
+# from Hound Tor to Holwall lawn
+# points = ["int_dpn17", "dpn_271"]
+
+# from Holwell Lawn to medieval settlement
+points = ["al_659", "al_1017"]
 
 weighted_path_dpn,weighted_path_surface_cost,graph = create_graph_and_paths(network_links)
 
@@ -143,3 +153,9 @@ plot_network(SX77_map, study_area_shapely, network_nodes, network_links, weighte
              linestring_smoothed_dpn)
 plot_network(SX77_map, study_area_shapely, network_nodes, network_links, weighted_path_surface_cost_gpd,
              linestring_smoothed_surface_cost)
+
+# linestring_smoothed_dpn.to_file("Study_area/SX7478/linestring_smoothed_dpn'int_dpn17','dpn_271'.geojson", driver='GeoJSON',crs='EPSG:27700')
+# linestring_smoothed_surface_cost.to_file("Study_area/SX7478/linestring_smoothed_surface_cost'int_dpn17','dpn_271'.geojson", driver='GeoJSON',crs='EPSG:27700')
+
+linestring_smoothed_dpn.to_file("Study_area/SX7478/linestring_smoothed_dpn'al_659','al_1017'.geojson", driver='GeoJSON',crs='EPSG:27700')
+linestring_smoothed_surface_cost.to_file("Study_area/SX7478/linestring_smoothed_surface_cost'al_659','al_1017'.geojson", driver='GeoJSON',crs='EPSG:27700')
